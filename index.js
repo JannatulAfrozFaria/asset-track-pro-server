@@ -26,6 +26,23 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+    const assetCollection = client.db("AssetTrackPro").collection("assets");
+    const requestCollection = client.db("AssetTrackPro").collection("requests");
+
+
+    app.get('/assets', async(req,res)=>{
+        const result = await assetCollection.find().toArray();
+        res.send(result);
+    })
+    //request related api
+    //creating the request collection
+    app.post('/requests',async(req,res)=>{
+        const requestedAsset = req.body;
+        const result = await requestCollection.insertOne(requestedAsset);
+        res.send(result);
+    })
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
