@@ -36,6 +36,11 @@ async function run() {
         res.send(result);
     })
     //request related api
+    //loading user specific requested asset
+    app.get('/requests', async(req,res)=>{
+        const result = await requestCollection.find().toArray();
+        res.send(result);
+    })
     //creating the request collection
     app.post('/requests',async(req,res)=>{
         const requestedAsset = req.body;
