@@ -32,6 +32,12 @@ async function run() {
     const userCollection = client.db("AssetTrackPro").collection("users");
 
     //users related api
+    //all USERS /  EMPLOYEE---List
+    app.get('/users',async(req,res)=>{
+        const result = await userCollection.find().toArray();
+        res.send(result);
+    })
+    //sending users data to database collection
     app.post('/users',async(req,res)=>{
         const user = req.body;
         //insert email if user doesn't exists:
