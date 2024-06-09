@@ -26,15 +26,26 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-
+    
     const assetCollection = client.db("AssetTrackPro").collection("assets");
     const requestCollection = client.db("AssetTrackPro").collection("requests");
+    const userCollection = client.db("AssetTrackPro").collection("users");
+
+    //users related api
+    app.post('/users',async(req,res)=>{
+        const user = req.body;
+        const result = await userCollection.insertOne(user);
+        res.send(result);
+    })
 
 
+    //assets related api
     app.get('/assets', async(req,res)=>{
         const result = await assetCollection.find().toArray();
         res.send(result);
     })
+
+
     //request related api
     //loading user specific requested asset
     app.get('/requests', async(req,res)=>{
@@ -56,7 +67,7 @@ async function run() {
         const result = await requestCollection.deleteOne(query)
         res.send(result);
     })
-
+    
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
