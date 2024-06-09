@@ -26,7 +26,7 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    
+
     const assetCollection = client.db("AssetTrackPro").collection("assets");
     const requestCollection = client.db("AssetTrackPro").collection("requests");
     const userCollection = client.db("AssetTrackPro").collection("users");
@@ -34,6 +34,15 @@ async function run() {
     //users related api
     app.post('/users',async(req,res)=>{
         const user = req.body;
+        //insert email if user doesn't exists:
+        //u can do this many ways
+        //1. email unique chceck
+        //2. upset , 3. simple checking
+        const query =  {email: user.email}
+        const existingUser = await userCollection.findOne(query);
+        if(existingUser){
+            return res.send({message: 'user already exists', insertedId: null})
+        }
         const result = await userCollection.insertOne(user);
         res.send(result);
     })
