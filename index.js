@@ -10,7 +10,7 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sirqfba.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -38,13 +38,22 @@ async function run() {
     //request related api
     //loading user specific requested asset
     app.get('/requests', async(req,res)=>{
-        const result = await requestCollection.find().toArray();
+        const email = req.query.email;
+        const query = {email: email};
+        const result = await requestCollection.find(query).toArray();
         res.send(result);
     })
     //creating the request collection
     app.post('/requests',async(req,res)=>{
         const requestedAsset = req.body;
         const result = await requestCollection.insertOne(requestedAsset);
+        res.send(result);
+    })
+    //for cancelling  Asset from the requested asset list
+    app.delete('/requests/:id', async(req,res)=>{
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await requestCollection.deleteOne(query)
         res.send(result);
     })
 
