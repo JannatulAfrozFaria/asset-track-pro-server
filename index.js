@@ -30,8 +30,10 @@ async function run() {
     const assetCollection = client.db("AssetTrackPro").collection("assets");
     const requestCollection = client.db("AssetTrackPro").collection("requests");
     const userCollection = client.db("AssetTrackPro").collection("users");
+    const employeeCollection = client.db("AssetTrackPro").collection("employees");
 
     //users related api
+    
     //all USERS /  EMPLOYEE---List
     app.get('/users',async(req,res)=>{
         const result = await userCollection.find().toArray();
@@ -82,6 +84,32 @@ async function run() {
         const result = await requestCollection.deleteOne(query)
         res.send(result);
     })
+
+
+    //-------------------------------------------------------------
+    //EMPLOYEE----- related api
+    //loading user specific requested asset
+    app.get('/employees', async(req,res)=>{
+        const email = req.query.email;
+        const query = {email: email};
+        const result = await employeeCollection.find(query).toArray();
+        res.send(result);
+    })
+    //creating the request collection
+    app.post('/employees',async(req,res)=>{
+        const requestedAsset = req.body;
+        const result = await employeeCollection.insertOne(requestedAsset);
+        res.send(result);
+    })
+    //for cancelling  Asset from the requested asset list
+    app.delete('/employees/:id', async(req,res)=>{
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await employeeCollection.deleteOne(query)
+        res.send(result);
+    })
+
+    
     
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
