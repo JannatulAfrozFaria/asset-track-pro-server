@@ -55,6 +55,19 @@ async function run() {
         res.send(result);
     })
 
+    //For MAKING ADMIN------
+    app.patch('/users/admin/:id',async(req,res)=>{
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)};
+        const updateDoc = {
+            $set: {
+                role: 'HR'
+            }
+        }
+        const result = await userCollection.updateOne(filter,updateDoc)
+        res.send(result);
+    })
+
 
     //assets related api
     app.get('/assets', async(req,res)=>{
@@ -77,6 +90,22 @@ async function run() {
         const result = await requestCollection.insertOne(requestedAsset);
         res.send(result);
     })
+    //updating the approval date in request
+    app.patch('/requests/:id',async(req,res)=>{
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)};
+
+        const currentDate = new Date();
+        const formattedDate = `${currentDate.getFullYear()}/${String(currentDate.getMonth() + 1).padStart(2, '0')}/${String(currentDate.getDate()).padStart(2, '0')}`;
+
+        const updateDoc = {
+            $set: {
+                approval_date: formattedDate
+            }
+        }
+        const result = await userCollection.updateOne(filter,updateDoc)
+        res.send(result);
+    })
     //for cancelling  Asset from the requested asset list
     app.delete('/requests/:id', async(req,res)=>{
         const id = req.params.id;
@@ -97,8 +126,8 @@ async function run() {
     })
     //creating the request collection
     app.post('/employees',async(req,res)=>{
-        const requestedAsset = req.body;
-        const result = await employeeCollection.insertOne(requestedAsset);
+        const requestedEmployee = req.body;
+        const result = await employeeCollection.insertOne(requestedEmployee);
         res.send(result);
     })
     //for cancelling  Asset from the requested asset list
