@@ -32,30 +32,68 @@ async function run() {
     const requestCollection = client.db("AssetTrackPro").collection("requests");
     const userCollection = client.db("AssetTrackPro").collection("users");
     const employeeCollection = client.db("AssetTrackPro").collection("employees");
+
+    //middlewares for verifying token
+    const verifyToken = (req,res,next) =>{
+        // console.log( 'inside verify token', req.headers.authorization);
+        if(!req.headers.authorization){
+            return res.status(401).send({message: 'unauthorized access'});
+        }
+        const  token = req.headers.authorization.split(' ')[1];
+        jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+            if(err){
+                return res.status(401).send({message: 'unauthorized access'})
+            }
+            req.decoded = decoded;
+            next();
+        })
+    }
+    //use verifyHR after verifyToken
+    const verifyHR = async(req,res,next)=>{
+        const email = req.decoded.email;
+        const query = {email: email};
+        const user = await userCollection.findOne(query);
+        const isHR = user?.role === 'HR';
+        if(!isHR){
+            return res.status(403).send({message: 'forbidden access'});
+        }
+        next();
+    }
+
     //jwt related api
     app.post('/jwt',async(req,res)=>{
         const user = req.body;
         const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{
-            expiresIn: '1h'
-        });
-        res.send({token})
+        expiresIn: '1h'});
+        res.send({token});
     })
-
+    
 
     //users related api
     
     //all USERS /  EMPLOYEE---List
-    app.get('/users',async(req,res)=>{
+    app.get('/users', verifyToken, verifyHR, async(req,res)=>{
         const result = await userCollection.find().toArray();
         res.send(result);
+    })
+    app.get('/users/admin/:email', verifyToken, async(req,res)=>{
+        const email = req.params.email;
+        if(email !== req.decoded.email){
+            return res.status(403).send({message: 'forbidden access'})
+        }
+        const query = {email: email};
+        const user =  await userCollection.findOne(query);
+        let HR = false;
+        if(user){
+            HR = user?.role === 'HR';
+        }
+        res.send({HR});
     })
     //sending users data to database collection
     app.post('/users',async(req,res)=>{
         const user = req.body;
-        //insert email if user doesn't exists:
-        //u can do this many ways
-        //1. email unique chceck
-        //2. upset , 3. simple checking
+        //insert email if user doesn't exists: //u can do this many ways
+        //1. email unique check //2. upset , 3. simple checking
         const query =  {email: user.email}
         const existingUser = await userCollection.findOne(query);
         if(existingUser){
@@ -66,7 +104,7 @@ async function run() {
     })
 
     //For MAKING ADMIN------
-    app.patch('/users/admin/:id',async(req,res)=>{
+    app.patch('/users/admin/:id', verifyToken, verifyHR, async(req,res)=>{
         const id = req.params.id;
         const filter = {_id: new ObjectId(id)};
         const updateDoc = {
@@ -77,11 +115,24 @@ async function run() {
         const result = await userCollection.updateOne(filter,updateDoc)
         res.send(result);
     })
+    app.delete('/users/:id', verifyToken, verifyHR, async(req,res)=>{
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await userCollection.deleteOne(query);
+        res.send(result)
+    })
 
 
-    //assets related api
+    //-------------ASSETS------ related api
+    //All Assets--------
     app.get('/assets', async(req,res)=>{
         const result = await assetCollection.find().toArray();
+        res.send(result);
+    })
+    //Adding new assets to the assets collection
+    app.post('/assets',async(req,res)=>{
+        const item =  req.body;
+        const result = await menuCollection.insertOne(item);
         res.send(result);
     })
 
