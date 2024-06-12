@@ -32,6 +32,7 @@ async function run() {
     const requestCollection = client.db("AssetTrackPro").collection("requests");
     const userCollection = client.db("AssetTrackPro").collection("users");
     const employeeCollection = client.db("AssetTrackPro").collection("employees");
+    const packagesCollection = client.db("AssetTrackPro").collection("packages");
 
     //middlewares for verifying token
     const verifyToken = (req,res,next) =>{
@@ -124,25 +125,66 @@ async function run() {
 
 
     //-------------ASSETS------ related api
-    //All Assets--------
+    //Load-------All Assets--------
     app.get('/assets', async(req,res)=>{
         const result = await assetCollection.find().toArray();
         res.send(result);
     })
     //Adding new assets to the assets collection
-    app.post('/assets',async(req,res)=>{
+    app.post('/assets', verifyToken, verifyHR, async(req,res)=>{
         const item =  req.body;
-        const result = await menuCollection.insertOne(item);
+        const result = await assetCollection.insertOne(item);
+        res.send(result);
+    })
+    //opening a different api for updating info of a specific Asset(Update An Asset Page of UI)
+    app.get('/assets/:id',async(req,res)=>{
+        const id =  req.params.id;
+        const query =  {_id: new ObjectId(id)}
+        const result =  await assetCollection.findOne(query);
+        res.send(result);
+    })
+    //updating the data of a specific asset(Update Function of Update an Asset Page of UI)
+    app.patch('/assets/:id',async(req,res)=>{
+        const asset = req.body;
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)}
+        const updatedAsset = {
+            $set: {
+                name: asset.name,
+                type: asset.type,
+                quantity: asset.quantity,
+                stock: asset.stock,
+                date_added: asset.date_added,
+                image: asset.image
+            }
+        }
+        const result = await assetCollection.updateOne(filter,updatedAsset);
+        res.send(result);
+    })
+     //for deleting  Asset from Asset list(Admin's Page)
+    app.delete('/assets/:id', verifyToken, verifyHR, async(req,res)=>{
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await assetCollection.deleteOne(query)
         res.send(result);
     })
 
-
+    //------------PACKAGES---------------
+    app.get('/packages', async(req,res)=>{
+        const result = await packagesCollection.find().toArray();
+        res.send(result);
+    })
+    //opening a different api for updating info of a specific Asset(Update An Asset Page of UI)
+    app.get('/packages/:id',async(req,res)=>{
+        const id =  req.params.id;
+        const query =  {_id: new ObjectId(id)}
+        const result =  await packagesCollection.findOne(query);
+        res.send(result);
+    })
     //request related api
     //loading user specific requested asset
     app.get('/requests', async(req,res)=>{
-        const email = req.query.email;
-        const query = {email: email};
-        const result = await requestCollection.find(query).toArray();
+        const result = await requestCollection.find().toArray();
         res.send(result);
     })
     //creating the request collection
@@ -164,8 +206,14 @@ async function run() {
                 approval_date: formattedDate
             }
         }
-        const result = await userCollection.updateOne(filter,updateDoc)
-        res.send(result);
+        const result = await requestCollection.updateOne(filter,updateDoc)
+        console.log(result);
+        if(result.modifiedCount>0){
+            const modifiedData = await requestCollection.find().toArray();
+            return modifiedData;
+        }else{
+            return res.send({message: 'no modification'})
+        }
     })
     //for cancelling  Asset from the requested asset list
     app.delete('/requests/:id', async(req,res)=>{
@@ -178,20 +226,27 @@ async function run() {
 
     //-------------------------------------------------------------
     //EMPLOYEE----- related api
-    //loading user specific requested asset
+    //loading user specific employee asset
     app.get('/employees', async(req,res)=>{
-        const email = req.query.email;
-        const query = {email: email};
-        const result = await employeeCollection.find(query).toArray();
+        const result = await employeeCollection.find().toArray();
         res.send(result);
     })
-    //creating the request collection
+    //adding the new employee to the employee collection
     app.post('/employees',async(req,res)=>{
         const requestedEmployee = req.body;
-        const result = await employeeCollection.insertOne(requestedEmployee);
-        res.send(result);
+        const query = {email: req.body.email}
+        console.log(query);
+        const employee = await employeeCollection.findOne(query);
+        console.log(employee);
+        if(!employee){
+            const result = await employeeCollection.insertOne(requestedEmployee);
+            res.send(result);
+        }
+        else{
+            return res.send({message: 'Employee already exists in your team', insertedId: null})
+        }
     })
-    //for cancelling  Asset from the requested asset list
+    //for deleting  employee from the requested asset list
     app.delete('/employees/:id', async(req,res)=>{
         const id = req.params.id;
         const query = {_id: new ObjectId(id)}
