@@ -27,7 +27,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
 
     const assetCollection = client.db("AssetTrackPro").collection("assets");
     const requestCollection = client.db("AssetTrackPro").collection("requests");
@@ -37,14 +37,14 @@ async function run() {
 
     //middlewares for verifying token
     const verifyToken = (req,res,next) =>{
-        // console.log( 'inside verify token', req.headers.authorization);
+        console.log( 'inside verify token', req.headers.authorization);
         if(!req.headers.authorization){
-            return res.status(401).send({message: 'unauthorized access'});
+            return res.status(401).send({message: 'unauthorized access', HR:false})
         }
         const  token = req.headers.authorization.split(' ')[1];
         jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
             if(err){
-                return res.status(401).send({message: 'unauthorized access'})
+                return res.status(401).send({message: 'unauthorized access', HR:false})
             }
             req.decoded = decoded;
             next();
@@ -53,11 +53,15 @@ async function run() {
     //use verifyHR after verifyToken
     const verifyHR = async(req,res,next)=>{
         const email = req.decoded.email;
+        // console.log( 'EMAIL ID : ', email);
         const query = {email: email};
         const user = await userCollection.findOne(query);
+        console.log(user);
         const isHR = user?.role === 'HR';
         if(!isHR){
-            return res.status(403).send({message: 'forbidden access'});
+            // console.log('HR manager')
+            // return res.status(403).send({message: 'forbidden access'});
+            return res.send({ HR: false});
         }
         next();
     }
@@ -78,7 +82,7 @@ async function run() {
         const result = await userCollection.find().toArray();
         res.send(result);
     })
-    app.get('/users/admin/:email', verifyToken, async(req,res)=>{
+    app.get('/users/admin/:email', verifyToken, verifyHR, async(req,res)=>{
         const email = req.params.email;
         if(email !== req.decoded.email){
             return res.status(403).send({message: 'forbidden access'})
@@ -172,7 +176,19 @@ async function run() {
 
    
     //request related api
-    //loading user specific requested asset
+    //---------------------------------------------
+    //getting user specific request
+    app.get('/requests/:email',async(req,res)=>{
+        const email = req.params.email;
+        console.log(email);
+        const query = {email : email};
+        const result = await requestCollection.find(query).toArray();
+        // console.log(result);
+        res.send(result);
+    })
+
+    //---------------------------------------------
+    //loading all users requested asset
     app.get('/requests', async(req,res)=>{
         const result = await requestCollection.find().toArray();
         res.send(result);
@@ -184,7 +200,7 @@ async function run() {
         res.send(result);
     })
     //updating the approval date in request
-    app.patch('/requests/:id',async(req,res)=>{
+    app.patch('/approve/:id',async(req,res)=>{
         const id = req.params.id;
         const filter = {_id: new ObjectId(id)};
 
@@ -193,6 +209,7 @@ async function run() {
 
         const updateDoc = {
             $set: {
+                status: 'Approved',
                 approval_date: formattedDate
             }
         }
@@ -200,10 +217,13 @@ async function run() {
         console.log(result);
         if(result.modifiedCount>0){
             const modifiedData = await requestCollection.find().toArray();
+            res.send({modifiedData,formattedDate});
             return modifiedData;
+            
         }else{
             return res.send({message: 'no modification'})
         }
+        
     })
     //for cancelling  Asset from the requested asset list
     app.delete('/requests/:id', async(req,res)=>{
@@ -278,18 +298,64 @@ async function run() {
     //PIE----CHART---BY----AGGREGATE---PIPELINE
     app.get('/request-stats',async(req,res)=>{
         const result = await requestCollection.aggregate([
+            // {
+            //     $unwind: '$'
+            // },
             {
-                $unwind: '$assetId'
+                $lookup:{
+                    from: 'assets',
+                    localField: 'assetId',
+                    foreignField: '_id',
+                    as: 'assetId'
+                }
+            },
+            {
+                $group:{
+                    _id: 'type'
+                }
             }
         ]).toArray();
         res.send(result);
     })
 
+
+    // opening a different api for updating info of a specific User
+    app.get('/updateProfile/:email',async(req,res)=>{
+        const id =  req.params.email;
+        const query =  {_id: new ObjectId(id)}
+        const result =  await userCollection.findOne(query);
+        res.send(result);
+    })
+    //updating the data of a specific user Profile
+    app.patch('/updateProfile/:email',async(req,res)=>{
+        const user = req.body;
+        console.log(user);
+        const email = req.params.email;
+        const filter = {_id: new ObjectId(email)}
+        const updatedProfile = {
+            $set: {
+                displayName: user.displayName,
+                photoURL: user.photoURL
+            }
+        }
+        const result = await userCollection.updateOne(filter,updatedProfile);
+        res.send(result);
+
+        console.log(result);
+        // if(result.modifiedCount>0){
+        //     const modifiedData = await userCollection.find().toArray();
+        //     res.send({modifiedData,formattedDate});
+        //     return modifiedData;
+            
+        // }else{
+        //     return res.send({message: 'no modification'})
+        // }
+    })
     
     
     // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
